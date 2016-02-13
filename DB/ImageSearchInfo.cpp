@@ -40,23 +40,35 @@ ImageSearchInfo::ImageSearchInfo( const ImageDate& date,
                                   const QString& label, const QString& description )
     : m_date( date), m_label( label ), m_description( description ), m_rating( -1 ), m_megapixel( 0 ), m_ratingSearchMode( 0 ), m_searchRAW( false ), m_isNull( false ), m_compiled( false )
 {
+#ifdef USE_PCRE
+    m_regex = NULL; m_regexExtra = NULL;
+#endif
 }
 
 ImageSearchInfo::ImageSearchInfo( const ImageDate& date,
                                   const QString& label, const QString& description,
-                  const QString& fnPattern )
+                                  const QString& fnPattern )
     : m_date( date), m_label( label ), m_description( description ), m_fnPattern( fnPattern ), m_rating( -1 ), m_megapixel( 0 ), m_ratingSearchMode( 0 ), m_searchRAW( false ), m_isNull( false ), m_compiled( false )
 {
+#ifdef USE_PCRE
+    const char* pat = fnPattern.toUtf8().constData();
+    const char* errorStr; int errorOff;
+    m_regex = pcre_compile(pat, PCRE_UTF8, &errorStr, &errorOff, NULL);
+    if (errorStr != NULL || fnPattern.length() == 0) {
+        m_regex = NULL; m_regexExtra = NULL;
+        //qDebug() << "failed to compile pcre: " << errorStr << " at " << errorOff;
+        return;
+    }
+    m_regexExtra = pcre_study(m_regex, 0, &errorStr);
+    //qDebug() << "init pcre " << m_regex << ", " << m_regexExtra;
+#else
+    m_regex = NULL; m_regexExtra = NULL;
+#endif
 }
 
 QString ImageSearchInfo::label() const
 {
     return m_label;
-}
-
-QRegExp ImageSearchInfo::fnPattern() const
-{
-    return m_fnPattern;
 }
 
 QString ImageSearchInfo::description() const
@@ -67,6 +79,9 @@ QString ImageSearchInfo::description() const
 ImageSearchInfo::ImageSearchInfo()
     : m_rating( -1 ), m_megapixel( 0 ), m_ratingSearchMode( 0 ), m_searchRAW( false ), m_isNull( true ), m_compiled( false )
 {
+#ifdef USE_PCRE
+    m_regex = NULL; m_regexExtra = NULL;
+#endif
 }
 
 bool ImageSearchInfo::isNull() const
@@ -166,9 +181,21 @@ bool ImageSearchInfo::match( ImageInfoPtr info ) const
     }
 
     // -------------------------------------------------- File name pattern
+#ifdef USE_PCRE
+    if (m_regex != NULL) {
+        QByteArray fnArray = info->fileName().relative().toUtf8();
+        //qDebug() << "matching " << info->fileName().relative() << "(" << fnArray.size() <<")";
+        int result = pcre_exec(m_regex, m_regexExtra, fnArray.constData(), fnArray.size(), 0, 0, NULL, 0);
+        if (result < 0) {
+            ok = ok && 0;
+        } else {
+            //qDebug() << "match found " << info->fileName().relative();
+        }
+    }
+#else
     ok = ok && ( m_fnPattern.isEmpty() ||
         m_fnPattern.indexIn( info->fileName().relative() ) != -1 );
-
+#endif
 
 #ifdef HAVE_KGEOMAP
     // Search for GPS Position
@@ -318,6 +345,10 @@ ImageSearchInfo::ImageSearchInfo( const ImageSearchInfo& other )
     m_label = other.m_label;
     m_description = other.m_description;
     m_fnPattern = other.m_fnPattern;
+#ifdef USE_PCRE
+    m_regex = other.m_regex;
+    m_regexExtra = other.m_regexExtra;
+#endif
     m_isNull = other.m_isNull;
     m_compiled = false;
     m_rating = other.m_rating;

@@ -105,6 +105,12 @@ else()
     message(STATUS "  Geographic map features won't be built.")
 endif(KGEOMAP_FOUND)
 
+find_package(PCRE)
+if (PCRE_FOUND) 
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_PCRE")
+    message(STATUS "added -DUSE_PCRE to preprocessor defines")
+endif()
+
 add_custom_target(
     UpdateVersion ALL
     COMMAND ${CMAKE_COMMAND} -DBASE_DIR="${CMAKE_CURRENT_SOURCE_DIR}" -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/UpdateVersion.cmake"
@@ -480,6 +486,10 @@ endif(Kface_FOUND)
 
 if(KGEOMAP_FOUND)
     target_link_libraries(kphotoalbum ${KGEOMAP_LIBRARIES} )
+endif()
+
+if (PCRE_FOUND) 
+    target_link_libraries(kphotoalbum pcre)
 endif()
 
 install(TARGETS kphotoalbum ${INSTALL_TARGETS_DEFAULT_ARGS})

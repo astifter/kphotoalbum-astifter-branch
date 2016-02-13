@@ -29,6 +29,9 @@
 #ifdef HAVE_KGEOMAP
 #  include <libkgeomap/geocoordinates.h>
 #endif
+#ifdef USE_PCRE
+#  include <pcre.h>
+#endif
 namespace DB
 {
 
@@ -46,7 +49,7 @@ public:
                      const QString& label, const QString& description );
     ImageSearchInfo( const ImageDate& date,
                      const QString& label, const QString& description,
-             const QString& fnPattern );
+                     const QString& fnPattern );
     ImageSearchInfo( const ImageSearchInfo& other );
 
     ImageDate date() const;
@@ -100,6 +103,10 @@ private:
     QString m_label;
     QString m_description;
     QRegExp m_fnPattern;
+#ifdef USE_PCRE
+    pcre* m_regex;
+    pcre_extra* m_regexExtra;
+#endif
     short m_rating;
     short m_megapixel;
     int m_ratingSearchMode;
